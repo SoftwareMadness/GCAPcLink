@@ -1,0 +1,206 @@
+<title>PcLink</title>
+
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet">
+    <meta charset="utf-8">
+    <title></title>
+    <style media="screen">
+      body{
+        font-family: 'Open Sans', sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <time></time>
+    <h1>Welcome to PcLink</h1>
+    <h1 id="Temp"></h1>
+
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js">
+
+    </script>
+
+
+
+    <div height="10" width="20" style="height:400;width:500">
+    <canvas id="myChart" width="20%" height="10%"></canvas>
+    <h4 id="timeh"></h4>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/rollups/aes.js"></script>
+     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.9/sha256.js"></script>
+     <script type="text/javascript">
+       function timeupd()
+       {
+         var d = new Date();
+         var n = d.toLocaleTimeString();
+         document.getElementById("timeh").innerHTML = n;
+         setTimeout(timeupd, 500);
+       }
+       timeupd();
+     </script>
+    <script type="text/javascript">
+      var lbls = ["NaN"];
+      var dtss = [0];
+      var ctx = document.getElementById('myChart').getContext('2d');
+      var myChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+              labels:  lbls,
+              datasets: [{
+                  label: 'Temperature',
+                  data: dtss,
+                  backgroundColor: [
+                      'rgba(255, 99, 132, 0.2)',
+                      'rgba(54, 162, 235, 0.2)',
+                      'rgba(255, 206, 86, 0.2)',
+                      'rgba(75, 192, 192, 0.2)',
+                      'rgba(153, 102, 255, 0.2)',
+                      'rgba(255, 159, 64, 0.2)'
+                  ],
+                  borderColor: [
+                      'rgba(255, 99, 132, 1)',
+                      'rgba(54, 162, 235, 1)',
+                      'rgba(255, 206, 86, 1)',
+                      'rgba(75, 192, 192, 1)',
+                      'rgba(153, 102, 255, 1)',
+                      'rgba(255, 159, 64, 1)'
+                  ],
+                  borderWidth: 1
+              }]
+          },
+          options: {
+              scales: {
+                  yAxes: [{
+                      ticks: {
+                          beginAtZero: true
+                      }
+                  }]
+              }
+          }
+      });
+      function getUrlVars()
+      {
+          var vars = [], hash;
+          var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+          for(var i = 0; i < hashes.length; i++)
+          {
+              hash = hashes[i].split('=');
+              vars.push(hash[0]);
+              vars[hash[0]] = hash[1];
+          }
+          return vars;
+      }
+      var token = getUrlVars()["Token"];
+      console.log(token);
+      var encryption = getUrlVars()["SSH"];
+      function decryptData(encrypted,iv,key){
+        var decrypted = CryptoJS.AES.decrypt(encrypted, key, {
+            	  iv: iv,
+                mode: CryptoJS.mode.CBC,
+                padding: CryptoJS.pad.Pkcs7
+            });
+        return decrypted.toString(CryptoJS.enc.Utf8)
+      }
+      var iv  = CryptoJS.enc.Base64.parse("");
+      var key=CryptoJS.SHA256(encryption);
+
+      var datarw = "0:0:0,0;0:0:1,0";
+      function updateDT(dtx)
+      {
+        dtx.text().then(function(dtx){
+          datarw = dtx;
+          console.log(datarw);
+          updateChart();
+        });
+
+      }
+      function minutestotime(min){
+        return (min/60)+":"+min+":0";
+      }
+      function timetominutes(tmstmp)
+      {
+        var minutes = 0;
+        minutes += parseInt(tmstmp.split(":")[1],10);
+        minutes += parseInt(tmstmp.split(":")[0],10)*60;
+      }
+      const lerp = (x, y, a) => x * (1 - a) + y * a;
+      function updateChart()
+      {
+        document.getElementById("Temp").innerHTML = datarw.split("&")[0];
+        var dts = datarw.split("&")[1].split(";");
+        var data = [];
+        var labels = [];
+        var temperatures = [];
+        var timestamps = [];
+        var initial = dts[0];
+        var comptmr = initial.split(",")[0];
+        var o = 0;
+        var bftemp = parseInt(initial.split(",")[1],10);
+        var loctemp = 0;
+        for(var i = 1;i < dts.length;i++)
+        {
+            var cmpdt = timetominutes(comptmr);
+            var tmdt = timetominutes(dts[i].split(",")[0]);
+            loctemp = parseInt(dts[i].split(",")[1],10);
+            temperatures[o] = loctemp;
+            timestamps[o] = dts[i].split(",")[0];
+            o++;
+            for(var mn =0;mn < (tmdt-cmpdt);mn++){
+              temperatures[o] = lerp(bftemp,loctemp,(1/(tmdt-cmpdt))*mn);
+              timestamps[o] = minutestotime(cmpdt+mn);
+              o++;
+            }
+        }
+        for(var i = 0;i < dts.length;i++){
+          data[i] = parseInt(dts[i].split(",")[1],10);
+          labels[i] = dts[i].split(",")[0];
+        }
+      dtss = data;
+      lbls = labels;
+      var myChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+              labels:  lbls,
+              datasets: [{
+                  label: 'Temperature',
+                  data: dtss,
+                  backgroundColor: [
+                      'rgba(255, 99, 132, 0.2)',
+                      'rgba(54, 162, 235, 0.2)',
+                      'rgba(255, 206, 86, 0.2)',
+                      'rgba(75, 192, 192, 0.2)',
+                      'rgba(153, 102, 255, 0.2)',
+                      'rgba(255, 159, 64, 0.2)'
+                  ],
+                  borderColor: [
+                      'rgba(255, 99, 132, 1)',
+                      'rgba(54, 162, 235, 1)',
+                      'rgba(255, 206, 86, 1)',
+                      'rgba(75, 192, 192, 1)',
+                      'rgba(153, 102, 255, 1)',
+                      'rgba(255, 159, 64, 1)'
+                  ],
+                  borderWidth: 1
+              }]
+          },
+          options: {
+              scales: {
+                  yAxes: [{
+                      ticks: {
+                          beginAtZero: true
+                      }
+                  }]
+              }
+          }
+      });
+      }
+
+      fetch("http://pclink.gearhostpreview.com/"+token+".txt")
+      .then(function(response){updateDT(response)}).catch(function(err){alert("An Error occurred : "+err)});
+
+    </script>
+    <p>V 0.1</p>
+  </body>
+</html>
